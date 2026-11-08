@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Sonar Array</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; background: #111; color: #fff; }
+        button { background: #007aff; color: white; border: none; padding: 20px 40px; font-size: 18px; border-radius: 12px; margin-top: 20px; font-weight: bold;}
+        #status { margin-top: 20px; color: #8e8e93; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h1>Active Sonar Sensor</h1>
+    <p>Turn your phone volume up high. It will play a 19kHz tone and stream microphone reflections to Windows.</p>
+    <button onclick="initSonar()">Activate Sonar Array</button>
+    <div id="status">Status: Disconnected</div>
+
+    <script>
+        // Set to your exact Windows IP address
+        let targetIP = "192.168.1.50"; 
+        let socket;
+
+        function initSonar() {
+            document.getElementById("status").innerText = "Connecting to Windows PC...";
+            socket = new WebSocket(`ws://${targetIP}:8765`);
+
+            socket.onopen = async () => {
+                document.getElementById("status").innerText = "Connected! Accessing microphone...";
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    document.getElementById("status").innerText = "🟢 Sonar Active & Streaming!";
+                    
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    
+                    // Play the tone
+                    const oscillator = audioCtx.createOscillator();
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(19000, audioCtx.currentTime); 
+                    oscillator.connect(audioCtx.destination);
+                    oscillator.start();
+
+                    // Listen to reflections
+                    const source = audioCtx.createMediaStreamSource(stream);
+                    const analyser = audioCtx.createAnalyser();
+                    analyser.fftSize = 256;
+                    source.connect(analyser);
+
+                    const bufferLength = analyser.frequencyBinCount;
+                    const dataArray = new Uint8Array(bufferLength);
+
+                    setInterval(() => {
+                        analyser.getByteFrequencyData(dataArray);
+                        let targetBinVolume = dataArray[bufferLength - 4] || 0; 
+                        let normalizedVolume = targetBinVolume / 255.0;
+
+                        if (socket.readyState === WebSocket.OPEN) {
+                            socket.send(JSON.stringify({ volume: normalizedVolume }));
+                        }
+                    }, 33);
+                } catch (err) {
+                    document.getElementById("status").innerText = "Error: Mic access denied. " + err;
+                }
+            };
+
+            socket.onerror = (err) => {
+                document.getElementById("status").innerText = "Connection failed. Check your network or firewall.";
+            };
+        }
+    </script>
+</body>
+</html>
