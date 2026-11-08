@@ -17,13 +17,15 @@
     <div id="status">Status: Disconnected</div>
 
     <script>
-        // Set to your exact Windows IP address
-        let targetIP = "192.168.1.50"; 
+        // Clean target URL using secure WebSockets protocol
+        let targetURL = "wss://pork-contort-atlas.ngrok-free.dev"; 
         let socket;
 
         function initSonar() {
             document.getElementById("status").innerText = "Connecting to Windows PC...";
-            socket = new WebSocket(`ws://${targetIP}:8765`);
+            
+            // Connect to your secure ngrok tunnel
+            socket = new WebSocket(targetURL);
 
             socket.onopen = async () => {
                 document.getElementById("status").innerText = "Connected! Accessing microphone...";
